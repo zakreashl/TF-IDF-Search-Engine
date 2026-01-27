@@ -9,23 +9,42 @@ STOP_WORDS: set[str] = {"a", "to", "the", "is", "in", "and", "was", "with", "his
                    "many", "would", "been", "some", "but", "other", "among", "being", "had", "more", "most", "can",
                    "into", "who", "than", "while", "means", "first", "both", "all", "became", "because"}
 
-def search(search_prompt: str, articles: DataFrame, idfs: dict[str, float]) -> int:
-    index: int = -1
-    greatest_tf_idf: float = 0
+def search(query: str, articles: DataFrame, idfs: dict[str, float], stop_words: set[str]) -> int:
+    query_terms = process_clean_text(query, stop_words)
 
+    # Get unique query term counts  
+    query_tf = {}
+    for w in query_terms:
+        query_tf[w] = query_tf.get(w, 0) + 1
+
+    # Normalize the terms
+    for w in query_tf:
+        query_tf[w] /= len(query_terms)
+
+    # Make a dict containg all the tf-idfs for easier access
+    query_tfidf = {
+        w: query_tf[w] * idfs.get(w, 0.0)
+        for w in query_tf
+    }
+
+    best_idx = -1
+    best_score = 0.0
+
+    # Go for each article
     for i in range(len(articles)):
-        term_frequencies = articles["term_frequencies"].iloc[i]
+        doc_tf = articles["term_frequencies"].iloc[i]
 
-        if search_prompt not in term_frequencies:
-            continue
+        # Get the id-idfs and fine the greatest one
+        score = 0.0
+        for w, q_w in query_tfidf.items():
+            if w in doc_tf:
+                score += q_w * (doc_tf[w] * idfs[w])
 
-        tf_idf: float = term_frequencies[search_prompt] * idfs[search_prompt]
+        if score > best_score:
+            best_score = score
+            best_idx = i
 
-        if tf_idf > greatest_tf_idf:
-            index = i
-            greatest_tf_idf = tf_idf
-
-    return index
+    return best_idx
 
 def process_clean_text(text: str, stop_words: set[str]) -> list[str]:
     processed = []
@@ -98,7 +117,7 @@ def main(stop_words: set):
     while True:
         prompt = str(input("Search: ")).lower()
         if prompt == "done": exit()
-        article_index = search(prompt, articles=articles, idfs=idfs)
+        article_index = search(prompt, articles=articles, idfs=idfs, stop_words=STOP_WORDS)
 
         if article_index == -1:
             print("Article not found")
