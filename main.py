@@ -8,9 +8,10 @@ STOP_WORDS: set[str] = {"a", "to", "the", "is", "in", "and", "was", "with", "his
                    "which", "their", "this", "were", "has", "are", "its", "have", "not", "they", "also", "during",
                    "many", "would", "been", "some", "but", "other", "among", "being", "had", "more", "most", "can",
                    "into", "who", "than", "while", "means", "first", "both", "all", "became", "because"}
+CLEAN_RE = re.compile(r"[()\[\];:\-–,.!?\n]")
 
-def search(query: str, articles: DataFrame, idfs: dict[str, float], stop_words: set[str]) -> int:
-    query_terms = process_clean_text(query, stop_words)
+def search(query: str, articles: DataFrame, idfs: dict[str, float], stop_words: set[str], clean_re: re.Pattern[str]) -> int:
+    query_terms = process_clean_text(query, stop_words, clean_re=clean_re)
 
     # Get unique query term counts  
     query_tf = {}
@@ -46,30 +47,26 @@ def search(query: str, articles: DataFrame, idfs: dict[str, float], stop_words: 
 
     return best_idx
 
-def process_clean_text(text: str, stop_words: set[str]) -> list[str]:
+def process_clean_text(text: str, stop_words: set[str], clean_re: re.Pattern[str]) -> list[str]:
     processed = []
 
     # Simplify the text
     text = text.lower() # Set all letters to lowercase for simplicity
-    text = re.sub(r"[()\[\];:\-–,.!?\n]", "", text) # Remove punctuation
+    text = clean_re.sub("", text) # Remove punctuation
     text = text.strip() # Remove trailing white space
     text = text.split(" ") # Turn into list of words
 
     # Remove all stop words
-    for word in text:
-        if word not in stop_words and len(word) > 2:
-            processed.append(word)
+    processed = [word for word in text if word not in stop_words and len(word) > 2]
 
     return processed
 
 def generate_term_frequencies(clean_text: list[str], idfs: dict[str, float]) -> dict[str, float]:
     term_frequencies: dict = {}
 
-    for word in set(clean_text):
-        idfs[word] = idfs.get(word, 0) + 1.0
-
     # Get all the counts of each meaningful words in the document
     for word in clean_text:
+        idfs[word] = idfs.get(word, 0) + 1.0
         term_frequencies[word] = term_frequencies.get(word, 0) + 1.0
 
     # Now normalize all the term frequencies so they are easier to work with
@@ -79,10 +76,10 @@ def generate_term_frequencies(clean_text: list[str], idfs: dict[str, float]) -> 
 
     return term_frequencies
 
-def generate_article_info(articles: DataFrame, stop_words: set[str], idfs: dict[str, float]):
+def generate_article_info(articles: DataFrame, stop_words: set[str], idfs: dict[str, float], clean_re: re.Pattern[str]):
     articles["clean_text"] = (
         articles["text"]
-        .apply(process_clean_text, stop_words=stop_words) # Process the text in a custom function for more complex proccesing 
+        .apply(process_clean_text, stop_words=stop_words, clean_re=clean_re) # Process the text in a custom function for more complex proccesing 
     )
 
     articles["term_frequencies"] = (
@@ -102,7 +99,7 @@ def calculate_idfs(idfs: dict[str, float], articles: DataFrame) -> dict[str, flo
     
     return idfs
 
-def main(stop_words: set):
+def main(stop_words: set, clean_re: re.Pattern[str]):
     # Load the data
     articles = load_data()
 
@@ -110,14 +107,14 @@ def main(stop_words: set):
 
     # Process the articles
     print("Processing articles...")
-    generate_article_info(articles=articles, stop_words=stop_words, idfs=idfs)
+    generate_article_info(articles=articles, stop_words=stop_words, idfs=idfs, clean_re=clean_re)
     idfs = calculate_idfs(idfs=idfs, articles=articles)
     print("Done processing articles")
 
     while True:
         prompt = str(input("Search: ")).lower()
         if prompt == "done": exit()
-        article_index = search(prompt, articles=articles, idfs=idfs, stop_words=STOP_WORDS)
+        article_index = search(prompt, articles=articles, idfs=idfs, stop_words=STOP_WORDS, clean_re=clean_re)
 
         if article_index == -1:
             print("Article not found")
@@ -127,4 +124,4 @@ def main(stop_words: set):
             print(articles["text"].iloc[article_index], "\n\n")
 
 if __name__ == "__main__":
-    main(stop_words=STOP_WORDS)
+    main(stop_words=STOP_WORDS, clean_re=CLEAN_RE)
