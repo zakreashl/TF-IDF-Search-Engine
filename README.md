@@ -21,6 +21,12 @@ How it works:
         - Each document is scored using a dot product between TF-IDF vectors
     5. The article with the highest scoring TF-IDF is returned
 
+<img width="778" height="713" alt="Image" src="https://github.com/user-attachments/assets/995c6aaf-d22b-4d1d-8b0c-38c8578ee1dd" />
+
+<img width="778" height="405" alt="Image" src="https://github.com/user-attachments/assets/f8287d35-4871-485e-b042-58fb8658c1d5" />
+
+<img width="778" height="691" alt="Image" src="https://github.com/user-attachments/assets/03f9c748-cda9-418a-87ff-806dde05b0ba" />
+
 Dataset:
 - Source: NeelNanda/wiki-10k (Hugging Face)
 - Size: 10,000 Wikipedia articles
